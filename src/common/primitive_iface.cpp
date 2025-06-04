@@ -98,10 +98,19 @@ status_t primitive_execute(
     if (get_verbose(verbose_t::exec_profile,
                 prim_kind2_comp_kind(primitive_iface->pd()->impl()->kind()))) {
         stream->wait();
+	stream->reset_profiling();
         double start_ms = get_msec();
         status = stream->enqueue_primitive(primitive_iface, ctx);
         stream->wait();
-        double duration_ms = get_msec() - start_ms;
+	int num_entries;
+        auto status = stream->get_profiling_data(
+            profiling_data_kind::time, &num_entries, nullptr);
+
+        std::vector<uint64_t> time(num_entries);
+        stream->get_profiling_data(profiling_data_kind::time, &num_entries, time.data());
+
+        double duration_ms = status == status::success ?
+            (double)time[0] : get_msec() - start_ms;
         if (primitive_iface->pd()->impl()->has_runtime_dims_or_strides()) {
             // Take out mds from `ctx` here to avoid primitive_desc dependency
             // on `exec_ctx_t` type.
